@@ -4,11 +4,25 @@ const auth = require('../middleware/auth');
 const { queryAI } = require('../services/openrouter');
 const router = express.Router();
 
+function persistAIResult(userId, route, entityId, result) {
+  db.query(
+    'INSERT INTO ai_analyses (user_id, route, entity_id, result) VALUES ($1,$2,$3,$4)',
+    [userId, route, entityId, typeof result === 'string' ? result : JSON.stringify(result)]
+  ).catch(() => {});
+}
+
 // Budget items
 router.get('/', auth, async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM budget_items ORDER BY category, created_at DESC');
-    res.json(result.rows);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    const [result, countResult] = await Promise.all([
+      db.query('SELECT * FROM budget_items ORDER BY category, created_at DESC LIMIT $1 OFFSET $2', [limit, offset]),
+      db.query('SELECT COUNT(*) FROM budget_items'),
+    ]);
+    const total = parseInt(countResult.rows[0].count);
+    res.json({ data: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -154,7 +168,82 @@ Provide:
 6. Recommendations`;
 
     const aiResult = await queryAI(prompt, 'You are a home renovation financial analyst specializing in budget management and cost optimization.');
+    persistAIResult(req.user?.id, 'budget/ai/analyze', null, aiResult.content);
     res.json(aiResult);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// AI: Cost-Variance Predictor — warns at item-creation time based on historical overruns
+router.post('/ai/variance-predict', auth, async (req, res) => {
+  try {
+    const { category, description, estimated_cost } = req.body;
+    if (!category || !estimated_cost) {
+      return res.status(400).json({ error: 'category and estimated_cost are required' });
+    }
+
+    // Fetch historical items in same category to compute overrun stats
+    const histResult = await db.query(
+      `SELECT category, description, estimated_cost, actual_cost,
+              CASE WHEN estimated_cost > 0 THEN ((actual_cost - estimated_cost) / estimated_cost * 100) ELSE 0 END as overrun_pct
+       FROM budget_items
+       WHERE category = $1 AND status = 'completed' AND actual_cost > 0
+       ORDER BY updated_at DESC LIMIT 20`,
+      [category]
+    );
+
+    const allItems = await db.query(
+      `SELECT category,
+              AVG(CASE WHEN estimated_cost > 0 THEN ((actual_cost - estimated_cost) / estimated_cost * 100) ELSE 0 END) as avg_overrun_pct,
+              COUNT(*) as sample_size
+       FROM budget_items WHERE status = 'completed' AND actual_cost > 0
+       GROUP BY category`
+    );
+
+    const catStats = histResult.rows;
+    const avgOverrun = catStats.length > 0
+      ? (catStats.reduce((s, r) => s + parseFloat(r.overrun_pct || 0), 0) / catStats.length).toFixed(1)
+      : null;
+
+    const allCategoryStats = allItems.rows.map(r =>
+      `${r.category}: avg overrun ${parseFloat(r.avg_overrun_pct || 0).toFixed(1)}% (n=${r.sample_size})`
+    ).join(', ');
+
+    const prompt = `As a home renovation cost analyst, predict variance risk for this new budget item.
+
+NEW ITEM:
+- Category: ${category}
+- Description: ${description || 'N/A'}
+- Estimated Cost: $${estimated_cost}
+
+HISTORICAL DATA FOR "${category}" CATEGORY (${catStats.length} completed items):
+${catStats.map(r => `Est: $${r.estimated_cost} → Actual: $${r.actual_cost} (${parseFloat(r.overrun_pct) > 0 ? '+' : ''}${parseFloat(r.overrun_pct).toFixed(0)}% overrun): ${r.description}`).join('\n') || 'No historical data for this category'}
+
+Average overrun for this category: ${avgOverrun !== null ? `${avgOverrun}%` : 'N/A'}
+
+All category averages: ${allCategoryStats || 'No data'}
+
+Return ONLY valid JSON:
+{
+  "variance_risk": "low"|"medium"|"high",
+  "predicted_overrun_percent": number,
+  "predicted_actual_cost": number,
+  "warning_message": string,
+  "historical_context": string,
+  "recommendations": string[]
+}`;
+
+    const aiResult = await queryAI(prompt, 'You are an expert home renovation cost analyst. Return only valid JSON, no markdown.');
+    persistAIResult(req.user?.id, 'budget/ai/variance-predict', null, aiResult.content);
+
+    let structured = null;
+    try {
+      const match = aiResult.content.match(/\{[\s\S]*\}/);
+      if (match) structured = JSON.parse(match[0]);
+    } catch (_) {}
+
+    res.json({ ai_analysis: aiResult, structured, historical_items: catStats.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

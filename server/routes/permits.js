@@ -4,10 +4,24 @@ const auth = require('../middleware/auth');
 const { queryAI } = require('../services/openrouter');
 const router = express.Router();
 
+function persistAIResult(userId, route, entityId, result) {
+  db.query(
+    'INSERT INTO ai_analyses (user_id, route, entity_id, result) VALUES ($1,$2,$3,$4)',
+    [userId, route, entityId, typeof result === 'string' ? result : JSON.stringify(result)]
+  ).catch(() => {});
+}
+
 router.get('/', auth, async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM permits ORDER BY submission_date DESC');
-    res.json(result.rows);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    const [result, countResult] = await Promise.all([
+      db.query('SELECT * FROM permits ORDER BY submission_date DESC LIMIT $1 OFFSET $2', [limit, offset]),
+      db.query('SELECT COUNT(*) FROM permits'),
+    ]);
+    const total = parseInt(countResult.rows[0].count);
+    res.json({ data: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -80,6 +94,7 @@ Provide:
 6. Inspection stages required`;
 
     const aiResult = await queryAI(prompt, 'You are a building permit and code compliance expert.');
+    persistAIResult(req.user?.id, 'permits/ai/requirements', null, aiResult.content);
     res.json(aiResult);
   } catch (err) {
     res.status(500).json({ error: err.message });

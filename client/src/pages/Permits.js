@@ -24,7 +24,7 @@ export default function Permits({ user, onLogout }) {
 
   const load = async () => {
     const { data } = await API.get('/permits');
-    setItems(data);
+    setItems(Array.isArray(data) ? data : (data.data || []));
   };
 
   const handleSave = async () => {

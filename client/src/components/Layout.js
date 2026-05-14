@@ -22,6 +22,7 @@ const navItems = [
   { path: '/photos', label: 'Photos', icon: '📸' },
   { path: '/payments', label: 'Payments', icon: '💳' },
   { path: '/reports', label: 'Reports', icon: '📈' },
+  { path: '/advanced-ai', label: 'Advanced AI', icon: '🤖' },
 ];
 
 export default function Layout({ children, user, onLogout }) {

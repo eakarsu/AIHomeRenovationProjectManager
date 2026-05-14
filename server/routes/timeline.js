@@ -6,8 +6,15 @@ const router = express.Router();
 
 router.get('/', auth, async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM timeline_tasks ORDER BY start_date ASC');
-    res.json(result.rows);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    const [result, countResult] = await Promise.all([
+      db.query('SELECT * FROM timeline_tasks ORDER BY start_date ASC LIMIT $1 OFFSET $2', [limit, offset]),
+      db.query('SELECT COUNT(*) FROM timeline_tasks'),
+    ]);
+    const total = parseInt(countResult.rows[0].count);
+    res.json({ data: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -111,6 +118,40 @@ Identify:
 6. Recommendations to resolve each issue`;
 
     const aiResult = await queryAI(prompt, 'You are a construction scheduling expert who identifies and resolves timeline conflicts.');
+    res.json(aiResult);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// AI: Timeline predictor — predict end date and per-phase durations
+router.post('/ai/predict', auth, async (req, res) => {
+  try {
+    const { project_scope, square_footage, region } = req.body;
+    const tasks = await db.query('SELECT * FROM timeline_tasks ORDER BY start_date');
+    const contractors = await db.query('SELECT name, specialty, availability_status FROM contractors');
+
+    const prompt = `Predict the most likely completion timeline for this renovation project.
+
+Stated scope: ${project_scope || 'Not provided — infer from tasks below.'}
+Square footage: ${square_footage || 'unspecified'}
+Region: ${region || 'unspecified'}
+
+Current Tasks (${tasks.rows.length}):
+${tasks.rows.map(t => `- ${t.task_name} (${t.phase}): ${t.start_date || '?'} to ${t.end_date || '?'}, Status: ${t.status}, ${t.completion_percentage || 0}% done, Priority: ${t.priority || 'n/a'}, Dependencies: ${t.dependencies || 'none'}`).join('\n')}
+
+Available Contractors:
+${contractors.rows.map(c => `- ${c.name}: ${c.specialty} (${c.availability_status})`).join('\n')}
+
+Return a structured prediction with:
+1. P50 and P90 completion dates (with reasoning)
+2. Per-phase predicted durations (rough demolition, framing, MEP, drywall, finishes, punchlist)
+3. Key risk factors that would push the date out
+4. Confidence (0-100) and assumptions
+5. Recommended buffer days
+6. Three concrete actions that would shorten the timeline`;
+
+    const aiResult = await queryAI(prompt, 'You are a construction scheduling forecaster who produces calibrated timeline predictions for residential renovations.');
     res.json(aiResult);
   } catch (err) {
     res.status(500).json({ error: err.message });

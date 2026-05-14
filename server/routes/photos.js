@@ -1,13 +1,75 @@
 const express = require('express');
 const db = require('../db');
 const auth = require('../middleware/auth');
+const { queryAIVision } = require('../services/openrouter');
 const router = express.Router();
+
+function persistAIResult(userId, route, entityId, result) {
+  db.query(
+    'INSERT INTO ai_analyses (user_id, route, entity_id, result) VALUES ($1,$2,$3,$4)',
+    [userId, route, entityId, typeof result === 'string' ? result : JSON.stringify(result)]
+  ).catch(() => {});
+}
+
+// AI: Describe photo and auto-create daily log entry
+router.post('/ai-describe', auth, async (req, res) => {
+  try {
+    const { image_base64, mime_type, project_id } = req.body;
+    if (!image_base64 || !mime_type) {
+      return res.status(400).json({ error: 'image_base64 and mime_type are required.' });
+    }
+
+    const aiResult = await queryAIVision(
+      image_base64,
+      mime_type,
+      'You are analyzing a home renovation photo. Return JSON only with no markdown fences.'
+    );
+
+    if (!aiResult.success) {
+      return res.status(500).json({ error: aiResult.content });
+    }
+
+    let structured = null;
+    try {
+      const jsonMatch = aiResult.content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) structured = JSON.parse(jsonMatch[0]);
+    } catch (_) {}
+
+    // Auto-create daily log entry
+    let logEntry = null;
+    try {
+      const logText = structured
+        ? `AI Photo Analysis — Progress: ${structured.progress_assessment}. Safety: ${(structured.safety_issues || []).join(', ') || 'None noted'}. Completion: ${structured.completion_estimate}%. Next steps: ${(structured.recommended_next_steps || []).join(', ')}.`
+        : aiResult.content;
+
+      const logResult = await db.query(
+        `INSERT INTO daily_logs (log_date, work_performed, notes)
+         VALUES (NOW(),$1,$2) RETURNING *`,
+        [logText, `Auto-generated from photo AI analysis${project_id ? ` (project_id: ${project_id})` : ''}`]
+      );
+      if (logResult) logEntry = logResult.rows[0];
+    } catch (_) {}
+
+    persistAIResult(req.user?.id, 'photos/ai-describe', project_id || null, aiResult.content);
+
+    res.json({ ai_analysis: aiResult, structured, log_entry: logEntry });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Get all photos
 router.get('/', auth, async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM photos ORDER BY taken_date DESC');
-    res.json(result.rows);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    const [result, countResult] = await Promise.all([
+      db.query('SELECT * FROM photos ORDER BY taken_date DESC LIMIT $1 OFFSET $2', [limit, offset]),
+      db.query('SELECT COUNT(*) FROM photos'),
+    ]);
+    const total = parseInt(countResult.rows[0].count);
+    res.json({ data: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

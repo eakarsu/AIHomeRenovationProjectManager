@@ -13,7 +13,7 @@ export default function Payments({ user, onLogout }) {
   const [summary, setSummary] = useState({ total_paid: 0, total_pending: 0, total_overdue: 0, total_payments: 0 });
 
   useEffect(() => { load(); loadSummary(); }, []);
-  const load = async () => { const { data } = await API.get('/payments'); setItems(data); };
+  const load = async () => { const { data } = await API.get('/payments'); setItems(Array.isArray(data) ? data : (data.data || [])); };
   const loadSummary = async () => { const { data } = await API.get('/payments/summary'); setSummary(data); };
   const handleSave = async () => { if (editing) await API.put(`/payments/${form.id}`, form); else await API.post('/payments', form); setShowForm(false); setForm(empty); setEditing(false); load(); loadSummary(); };
   const handleDelete = async (id) => { if (!window.confirm('Delete?')) return; await API.delete(`/payments/${id}`); setSelected(null); load(); loadSummary(); };

@@ -17,7 +17,7 @@ export default function Vendors({ user, onLogout }) {
   const [aiForm, setAIForm] = useState({ material_needed:'', budget:'' });
 
   useEffect(() => { load(); }, []);
-  const load = async () => { const { data } = await API.get('/vendors'); setItems(data); };
+  const load = async () => { const { data } = await API.get('/vendors'); setItems(Array.isArray(data) ? data : (data.data || [])); };
   const handleSave = async () => { if (editing) await API.put(`/vendors/${form.id}`, form); else await API.post('/vendors', form); setShowForm(false); setForm(empty); setEditing(false); load(); };
   const handleDelete = async (id) => { if (!window.confirm('Delete?')) return; await API.delete(`/vendors/${id}`); setSelected(null); load(); };
   const handleEdit = (item) => { setForm(item); setEditing(true); setShowForm(true); setSelected(null); };

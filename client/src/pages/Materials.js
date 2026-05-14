@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import AIResponse from '../components/AIResponse';
+import Pagination from '../components/Pagination';
 import API from '../services/api';
 
 const empty = { name:'', category:'', supplier:'', quantity:'', unit:'', unit_price:'', total_cost:'', status:'needed', delivery_date:'', room:'', notes:'' };
 
 export default function Materials({ user, onLogout }) {
   const [items, setItems] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
   const [selected, setSelected] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(empty);
@@ -14,13 +16,26 @@ export default function Materials({ user, onLogout }) {
   const [showAI, setShowAI] = useState(false);
   const [aiData, setAIData] = useState(null);
   const [aiLoading, setAILoading] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState(null);
 
-  useEffect(() => { load(); }, []);
-  const load = async () => { const { data } = await API.get('/materials'); setItems(data); };
-  const handleSave = async () => { if (editing) await API.put(`/materials/${form.id}`, form); else await API.post('/materials', form); setShowForm(false); setForm(empty); setEditing(false); load(); };
-  const handleDelete = async (id) => { if (!window.confirm('Delete?')) return; await API.delete(`/materials/${id}`); setSelected(null); load(); };
+  useEffect(() => { load(1); }, []);
+  const load = async (page = 1) => {
+    const { data } = await API.get(`/materials?page=${page}&limit=20`);
+    if (data.data) { setItems(data.data); setPagination(data.pagination); }
+    else setItems(Array.isArray(data) ? data : []);
+  };
+  const handleSave = async () => { if (editing) await API.put(`/materials/${form.id}`, form); else await API.post('/materials', form); setShowForm(false); setForm(empty); setEditing(false); load(pagination.page); };
+  const handleDelete = async (id) => { if (!window.confirm('Delete?')) return; await API.delete(`/materials/${id}`); setSelected(null); load(pagination.page); };
   const handleEdit = (item) => { setForm({...item, delivery_date: item.delivery_date?.split('T')[0]||''}); setEditing(true); setShowForm(true); setSelected(null); };
-  const handleAI = async () => { setAILoading(true); setAIData(null); setShowAI(true); try { const { data } = await API.post('/materials/ai/optimize'); setAIData(data); } catch(e) { setAIData({success:false,content:e.message}); } setAILoading(false); };
+  const handleAI = async () => {
+    setAILoading(true); setAIData(null); setShowAI(true); setRateLimitError(null);
+    try { const { data } = await API.post('/materials/ai/optimize'); setAIData(data); }
+    catch(e) {
+      if (e.response?.status === 429) setRateLimitError(e.response.data?.error || 'AI rate limit exceeded.');
+      else setAIData({success:false,content:e.message});
+    }
+    setAILoading(false);
+  };
 
   const getBadge = (s) => ({delivered:'badge-green',installed:'badge-green',ordered:'badge-blue',needed:'badge-yellow',backordered:'badge-red'}[s]||'badge-gray');
   const totalCost = items.reduce((s,i) => s + parseFloat(i.total_cost||0), 0);
@@ -55,6 +70,7 @@ export default function Materials({ user, onLogout }) {
           </tr>
         ))}
       </tbody></table></div>
+      <Pagination page={pagination.page} totalPages={pagination.totalPages} onPageChange={(p) => load(p)} />
 
       {selected && <div className="modal-overlay" onClick={()=>setSelected(null)}><div className="modal" onClick={e=>e.stopPropagation()}>
         <div className="modal-header"><h2>{selected.name}</h2><button className="modal-close" onClick={()=>setSelected(null)}>&times;</button></div>

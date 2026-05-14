@@ -24,7 +24,7 @@ export default function Timeline({ user, onLogout }) {
 
   const load = async () => {
     const { data } = await API.get('/timeline');
-    setItems(data);
+    setItems(Array.isArray(data) ? data : (data.data || []));
   };
 
   const handleSave = async () => {

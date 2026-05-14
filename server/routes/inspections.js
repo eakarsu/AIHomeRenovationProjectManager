@@ -6,8 +6,15 @@ const router = express.Router();
 
 router.get('/', auth, async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM inspections ORDER BY scheduled_date DESC');
-    res.json(result.rows);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    const [result, countResult] = await Promise.all([
+      db.query('SELECT * FROM inspections ORDER BY scheduled_date DESC LIMIT $1 OFFSET $2', [limit, offset]),
+      db.query('SELECT COUNT(*) FROM inspections'),
+    ]);
+    const total = parseInt(countResult.rows[0].count);
+    res.json({ data: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -49,6 +56,44 @@ router.delete('/:id', auth, async (req, res) => {
     const result = await db.query('DELETE FROM inspections WHERE id = $1 RETURNING *', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'Deleted', item: result.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// AI: Inspection insight — analyze a completed inspection's result and recommend remediation
+router.post('/ai/insight', auth, async (req, res) => {
+  try {
+    const { inspection_id } = req.body;
+    if (!inspection_id) return res.status(400).json({ error: 'inspection_id required' });
+    const ins = await db.query('SELECT * FROM inspections WHERE id = $1', [inspection_id]);
+    if (ins.rows.length === 0) return res.status(404).json({ error: 'Inspection not found' });
+    const inspection = ins.rows[0];
+
+    const recent = await db.query('SELECT inspection_type, area, status, result, scheduled_date FROM inspections WHERE id <> $1 ORDER BY scheduled_date DESC LIMIT 10', [inspection_id]);
+
+    const prompt = `Analyze this completed inspection and recommend remediation actions.
+
+Inspection:
+- Type: ${inspection.inspection_type || 'unspecified'}
+- Area: ${inspection.area || 'unspecified'}
+- Status: ${inspection.status || 'unspecified'}
+- Result: ${inspection.result || 'no result recorded'}
+- Notes: ${inspection.notes || 'none'}
+- Scheduled: ${inspection.scheduled_date || 'unspecified'}
+
+Recent inspections on this project (for context):
+${recent.rows.map(i => `- ${i.inspection_type} (${i.area}): ${i.status} - ${i.result || 'pending'} on ${i.scheduled_date}`).join('\n')}
+
+Provide:
+1. Severity assessment of any issues (critical / major / minor / advisory)
+2. Specific failed code references where applicable
+3. Step-by-step remediation plan with responsible trade per step
+4. Estimated remediation cost band (low/mid/high)
+5. Recommended re-inspection timing
+6. Risk if not corrected (safety, occupancy, financing)
+7. Documentation to gather for re-inspection`;
+
+    const aiResult = await queryAI(prompt, 'You are a residential building inspection analyst who interprets inspection findings and produces actionable remediation plans.');
+    res.json(aiResult);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

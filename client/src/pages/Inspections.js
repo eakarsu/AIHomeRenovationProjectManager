@@ -17,7 +17,7 @@ export default function Inspections({ user, onLogout }) {
   const [aiForm, setAIForm] = useState({ inspection_type:'', area:'' });
 
   useEffect(() => { load(); }, []);
-  const load = async () => { const { data } = await API.get('/inspections'); setItems(data); };
+  const load = async () => { const { data } = await API.get('/inspections'); setItems(Array.isArray(data) ? data : (data.data || [])); };
   const handleSave = async () => { if (editing) await API.put(`/inspections/${form.id}`, form); else await API.post('/inspections', form); setShowForm(false); setForm(empty); setEditing(false); load(); };
   const handleDelete = async (id) => { if (!window.confirm('Delete?')) return; await API.delete(`/inspections/${id}`); setSelected(null); load(); };
   const handleEdit = (item) => { setForm({...item, scheduled_date:item.scheduled_date?.split('T')[0]||'', completed_date:item.completed_date?.split('T')[0]||''}); setEditing(true); setShowForm(true); setSelected(null); };

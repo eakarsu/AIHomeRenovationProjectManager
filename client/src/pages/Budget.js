@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import AIResponse from '../components/AIResponse';
+import Pagination from '../components/Pagination';
 import API from '../services/api';
 
 const emptyItem = {
@@ -10,6 +11,7 @@ const emptyItem = {
 
 export default function Budget({ user, onLogout }) {
   const [items, setItems] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
   const [selected, setSelected] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyItem);
@@ -17,12 +19,16 @@ export default function Budget({ user, onLogout }) {
   const [showAI, setShowAI] = useState(false);
   const [aiData, setAIData] = useState(null);
   const [aiLoading, setAILoading] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState(null);
+  const [variancePrediction, setVariancePrediction] = useState(null);
+  const [varianceLoading, setVarianceLoading] = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(1); }, []);
 
-  const load = async () => {
-    const { data } = await API.get('/budget');
-    setItems(data);
+  const load = async (page = 1) => {
+    const { data } = await API.get(`/budget?page=${page}&limit=20`);
+    if (data.data) { setItems(data.data); setPagination(data.pagination); }
+    else setItems(Array.isArray(data) ? data : []);
   };
 
   const handleSave = async () => {
@@ -34,14 +40,15 @@ export default function Budget({ user, onLogout }) {
     setShowForm(false);
     setForm(emptyItem);
     setEditing(false);
-    load();
+    setVariancePrediction(null);
+    load(pagination.page);
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this budget item?')) return;
     await API.delete(`/budget/${id}`);
     setSelected(null);
-    load();
+    load(pagination.page);
   };
 
   const handleEdit = (item) => {
@@ -51,15 +58,37 @@ export default function Budget({ user, onLogout }) {
     setSelected(null);
   };
 
+  const handleVariancePredict = async () => {
+    if (!form.category || !form.estimated_cost) return;
+    setVarianceLoading(true);
+    setVariancePrediction(null);
+    try {
+      const { data } = await API.post('/budget/ai/variance-predict', {
+        category: form.category,
+        description: form.description,
+        estimated_cost: parseFloat(form.estimated_cost),
+      });
+      setVariancePrediction(data.structured || { warning_message: data.ai_analysis?.content });
+    } catch (err) {
+      setVariancePrediction({ warning_message: err.message });
+    }
+    setVarianceLoading(false);
+  };
+
   const handleAI = async () => {
     setAILoading(true);
     setAIData(null);
     setShowAI(true);
+    setRateLimitError(null);
     try {
       const { data } = await API.post('/budget/ai/analyze');
       setAIData(data);
     } catch (err) {
-      setAIData({ success: false, content: err.message });
+      if (err.response?.status === 429) {
+        setRateLimitError(err.response.data?.error || 'AI rate limit exceeded. Max 20 requests/hour.');
+      } else {
+        setAIData({ success: false, content: err.message });
+      }
     }
     setAILoading(false);
   };
@@ -137,6 +166,7 @@ export default function Budget({ user, onLogout }) {
           </tbody>
         </table>
       </div>
+      <Pagination page={pagination.page} totalPages={pagination.totalPages} onPageChange={(p) => load(p)} />
 
       {selected && (
         <div className="modal-overlay" onClick={() => setSelected(null)}>
@@ -200,6 +230,41 @@ export default function Budget({ user, onLogout }) {
                 </div>
               </div>
               <div className="form-group"><label>Notes</label><textarea value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+
+              {!editing && form.category && form.estimated_cost && (
+                <div style={{ marginTop: 12 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ai"
+                    onClick={handleVariancePredict}
+                    disabled={varianceLoading}
+                    style={{ width: '100%', marginBottom: 10 }}
+                  >
+                    {varianceLoading ? '🤖 Predicting...' : '🤖 Predict Cost Variance Risk'}
+                  </button>
+                  {variancePrediction && (
+                    <div style={{
+                      padding: 14, borderRadius: 8, marginTop: 8,
+                      background: variancePrediction.variance_risk === 'high' ? '#fef2f2' : variancePrediction.variance_risk === 'medium' ? '#fefce8' : '#f0fdf4',
+                      border: `1px solid ${variancePrediction.variance_risk === 'high' ? '#fca5a5' : variancePrediction.variance_risk === 'medium' ? '#fde047' : '#86efac'}`,
+                    }}>
+                      {variancePrediction.variance_risk && (
+                        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: variancePrediction.variance_risk === 'high' ? '#dc2626' : variancePrediction.variance_risk === 'medium' ? '#ca8a04' : '#16a34a' }}>
+                          Risk: {variancePrediction.variance_risk?.toUpperCase()}
+                          {variancePrediction.predicted_overrun_percent !== undefined && ` — Avg Overrun: ${variancePrediction.predicted_overrun_percent}%`}
+                          {variancePrediction.predicted_actual_cost !== undefined && ` — Predicted Actual: $${variancePrediction.predicted_actual_cost?.toLocaleString()}`}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 13, color: '#374151' }}>{variancePrediction.warning_message || variancePrediction.historical_context}</div>
+                      {variancePrediction.recommendations?.length > 0 && (
+                        <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 12, color: '#374151' }}>
+                          {variancePrediction.recommendations.map((r, i) => <li key={i}>{r}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
@@ -217,6 +282,11 @@ export default function Budget({ user, onLogout }) {
               <button className="modal-close" onClick={() => setShowAI(false)}>&times;</button>
             </div>
             <div className="modal-body">
+              {rateLimitError && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: 16, marginBottom: 16, color: '#dc2626' }}>
+                  {rateLimitError}
+                </div>
+              )}
               <AIResponse data={aiData} loading={aiLoading} />
               {aiData && <div style={{ marginTop: 16 }}><button className="btn btn-secondary btn-sm" onClick={() => { setAIData(null); handleAI(); }}>Refresh Analysis</button></div>}
             </div>

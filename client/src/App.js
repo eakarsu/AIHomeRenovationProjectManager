@@ -21,7 +21,27 @@ import DailyLog from './pages/DailyLog';
 import Photos from './pages/Photos';
 import Payments from './pages/Payments';
 import Reports from './pages/Reports';
+import AdvancedAITools from './pages/AdvancedAITools';
 import './App.css';
+
+// === Batch 04 Gaps & Frontend Mounts ===
+import CfAgenticProjectCoordinatorSchedulingI from './pages/CfAgenticProjectCoordinatorSchedulingI';
+import CfVisionBasedConstructionProgressTrack from './pages/CfVisionBasedConstructionProgressTrack';
+import CfChangeOrderAiAdvisorEstimatingCostt from './pages/CfChangeOrderAiAdvisorEstimatingCostt';
+import CfContractorPerformanceScoringExtending from './pages/CfContractorPerformanceScoringExtending';
+import CfMaterialSupplyChainOptimizationMonit from './pages/CfMaterialSupplyChainOptimizationMonit';
+import CfLienPaymentAutomationFlaggingPayment from './pages/CfLienPaymentAutomationFlaggingPayment';
+import GapNoTimelinePredictorBasedOnScope from './pages/GapNoTimelinePredictorBasedOnScope';
+import GapNoBudgetOptimizerOverspendFlagger from './pages/GapNoBudgetOptimizerOverspendFlagger';
+import GapNoContractorRecommendationEngine from './pages/GapNoContractorRecommendationEngine';
+import GapNoMaterialCostEstimator from './pages/GapNoMaterialCostEstimator';
+import GapNoVisionBasedInspectionAnalyzer from './pages/GapNoVisionBasedInspectionAnalyzer';
+import GapNoScheduleConflictDetectorAcrossTra from './pages/GapNoScheduleConflictDetectorAcrossTra';
+import GapNoLienManagement from './pages/GapNoLienManagement';
+import GapNoFormalChangeOrderWorkflow from './pages/GapNoFormalChangeOrderWorkflow';
+import GapNoContractorsupplierMarketplace from './pages/GapNoContractorsupplierMarketplace';
+import GapNoWebhookSurface from './pages/GapNoWebhookSurface';
+import GapNoRealTimeHomeownerUpdateFeed from './pages/GapNoRealTimeHomeownerUpdateFeed';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -68,7 +88,27 @@ function App() {
         <Route path="/photos" element={<P><Photos {...props} /></P>} />
         <Route path="/payments" element={<P><Payments {...props} /></P>} />
         <Route path="/reports" element={<P><Reports {...props} /></P>} />
-      </Routes>
+        <Route path="/advanced-ai" element={<P><AdvancedAITools {...props} /></P>} />
+      
+          {/* // === Batch 04 Gaps & Frontend Mounts === */}
+          <Route path="/cf-agentic-project-coordinator-scheduling-i" element={<CfAgenticProjectCoordinatorSchedulingI />} />
+          <Route path="/cf-vision-based-construction-progress-track" element={<CfVisionBasedConstructionProgressTrack />} />
+          <Route path="/cf-change-order-ai-advisor-estimating-costt" element={<CfChangeOrderAiAdvisorEstimatingCostt />} />
+          <Route path="/cf-contractor-performance-scoring-extending" element={<CfContractorPerformanceScoringExtending />} />
+          <Route path="/cf-material-supply-chain-optimization-monit" element={<CfMaterialSupplyChainOptimizationMonit />} />
+          <Route path="/cf-lien-payment-automation-flagging-payment" element={<CfLienPaymentAutomationFlaggingPayment />} />
+          <Route path="/gap-no-timeline-predictor-based-on-scope" element={<GapNoTimelinePredictorBasedOnScope />} />
+          <Route path="/gap-no-budget-optimizer-overspend-flagger" element={<GapNoBudgetOptimizerOverspendFlagger />} />
+          <Route path="/gap-no-contractor-recommendation-engine" element={<GapNoContractorRecommendationEngine />} />
+          <Route path="/gap-no-material-cost-estimator" element={<GapNoMaterialCostEstimator />} />
+          <Route path="/gap-no-vision-based-inspection-analyzer" element={<GapNoVisionBasedInspectionAnalyzer />} />
+          <Route path="/gap-no-schedule-conflict-detector-across-tra" element={<GapNoScheduleConflictDetectorAcrossTra />} />
+          <Route path="/gap-no-lien-management" element={<GapNoLienManagement />} />
+          <Route path="/gap-no-formal-change-order-workflow" element={<GapNoFormalChangeOrderWorkflow />} />
+          <Route path="/gap-no-contractorsupplier-marketplace" element={<GapNoContractorsupplierMarketplace />} />
+          <Route path="/gap-no-webhook-surface" element={<GapNoWebhookSurface />} />
+          <Route path="/gap-no-real-time-homeowner-update-feed" element={<GapNoRealTimeHomeownerUpdateFeed />} />
+</Routes>
     </Router>
   );
 }

@@ -16,7 +16,7 @@ export default function Rooms({ user, onLogout }) {
   const [aiLoading, setAILoading] = useState(false);
 
   useEffect(() => { load(); }, []);
-  const load = async () => { const { data } = await API.get('/rooms'); setItems(data); };
+  const load = async () => { const { data } = await API.get('/rooms'); setItems(Array.isArray(data) ? data : (data.data || [])); };
   const handleSave = async () => { if (editing) await API.put(`/rooms/${form.id}`, form); else await API.post('/rooms', form); setShowForm(false); setForm(empty); setEditing(false); load(); };
   const handleDelete = async (id) => { if (!window.confirm('Delete?')) return; await API.delete(`/rooms/${id}`); setSelected(null); load(); };
   const handleEdit = (item) => { setForm(item); setEditing(true); setShowForm(true); setSelected(null); };

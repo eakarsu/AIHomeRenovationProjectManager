@@ -17,7 +17,7 @@ export default function Communications({ user, onLogout }) {
   const [aiForm, setAIForm] = useState({ recipient:'', topic:'', tone:'professional', context:'' });
 
   useEffect(() => { load(); }, []);
-  const load = async () => { const { data } = await API.get('/communications'); setItems(data); };
+  const load = async () => { const { data } = await API.get('/communications'); setItems(Array.isArray(data) ? data : (data.data || [])); };
   const handleSave = async () => { if (editing) await API.put(`/communications/${form.id}`, form); else await API.post('/communications', form); setShowForm(false); setForm(empty); setEditing(false); load(); };
   const handleDelete = async (id) => { if (!window.confirm('Delete?')) return; await API.delete(`/communications/${id}`); setSelected(null); load(); };
   const handleEdit = (item) => { setForm({...item, comm_date:item.comm_date?.split('T')[0]||'', follow_up_date:item.follow_up_date?.split('T')[0]||''}); setEditing(true); setShowForm(true); setSelected(null); };

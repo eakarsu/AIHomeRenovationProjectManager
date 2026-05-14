@@ -16,7 +16,7 @@ export default function PunchList({ user, onLogout }) {
   const [aiLoading, setAILoading] = useState(false);
 
   useEffect(() => { load(); }, []);
-  const load = async () => { const { data } = await API.get('/punchlist'); setItems(data); };
+  const load = async () => { const { data } = await API.get('/punchlist'); setItems(Array.isArray(data) ? data : (data.data || [])); };
   const handleSave = async () => { if (editing) await API.put(`/punchlist/${form.id}`, form); else await API.post('/punchlist', form); setShowForm(false); setForm(empty); setEditing(false); load(); };
   const handleDelete = async (id) => { if (!window.confirm('Delete?')) return; await API.delete(`/punchlist/${id}`); setSelected(null); load(); };
   const handleEdit = (item) => { setForm({...item, due_date:item.due_date?.split('T')[0]||''}); setEditing(true); setShowForm(true); setSelected(null); };

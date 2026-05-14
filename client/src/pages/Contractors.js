@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import AIResponse from '../components/AIResponse';
+import Pagination from '../components/Pagination';
 import API from '../services/api';
 
 const emptyContractor = {
@@ -11,6 +12,7 @@ const emptyContractor = {
 
 export default function Contractors({ user, onLogout }) {
   const [items, setItems] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
   const [selected, setSelected] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyContractor);
@@ -19,12 +21,33 @@ export default function Contractors({ user, onLogout }) {
   const [aiData, setAIData] = useState(null);
   const [aiLoading, setAILoading] = useState(false);
   const [matchForm, setMatchForm] = useState({ project_description: '', budget: '', timeline: '' });
+  const [aiHistory, setAiHistory] = useState([]);
+  const [rateLimitError, setRateLimitError] = useState(null);
 
-  useEffect(() => { load(); }, []);
+  // Bid comparator
+  const [selectedBids, setSelectedBids] = useState([]);
+  const [showBidCompare, setShowBidCompare] = useState(false);
+  const [bidCompareResult, setBidCompareResult] = useState(null);
+  const [bidCompareLoading, setBidCompareLoading] = useState(false);
+  const [aiMode, setAiMode] = useState('match'); // 'match' | 'vet'
 
-  const load = async () => {
-    const { data } = await API.get('/contractors');
-    setItems(data);
+  useEffect(() => { load(1); loadAIHistory(); }, []);
+
+  const load = async (page = 1) => {
+    const { data } = await API.get(`/contractors?page=${page}&limit=20`);
+    if (data.data) {
+      setItems(data.data);
+      setPagination(data.pagination);
+    } else {
+      setItems(Array.isArray(data) ? data : []);
+    }
+  };
+
+  const loadAIHistory = async () => {
+    try {
+      const { data } = await API.get('/contractors/ai/history');
+      setAiHistory(data || []);
+    } catch (_) {}
   };
 
   const handleSave = async () => {
@@ -36,14 +59,14 @@ export default function Contractors({ user, onLogout }) {
     setShowForm(false);
     setForm(emptyContractor);
     setEditing(false);
-    load();
+    load(pagination.page);
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this contractor?')) return;
     await API.delete(`/contractors/${id}`);
     setSelected(null);
-    load();
+    load(pagination.page);
   };
 
   const handleEdit = (item) => {
@@ -56,11 +79,17 @@ export default function Contractors({ user, onLogout }) {
   const handleAIMatch = async () => {
     setAILoading(true);
     setAIData(null);
+    setRateLimitError(null);
     try {
       const { data } = await API.post('/contractors/ai/match', matchForm);
       setAIData(data);
+      loadAIHistory();
     } catch (err) {
-      setAIData({ success: false, content: err.message });
+      if (err.response?.status === 429) {
+        setRateLimitError(err.response.data?.error || 'AI rate limit exceeded. Max 20 requests/hour.');
+      } else {
+        setAIData({ success: false, content: err.message });
+      }
     }
     setAILoading(false);
   };
@@ -68,14 +97,51 @@ export default function Contractors({ user, onLogout }) {
   const handleAIVet = async (id) => {
     setAILoading(true);
     setAIData(null);
+    setRateLimitError(null);
+    setAiMode('vet');
     setShowAIMatch(true);
     try {
       const { data } = await API.post(`/contractors/ai/vet/${id}`);
       setAIData(data);
+      loadAIHistory();
     } catch (err) {
-      setAIData({ success: false, content: err.message });
+      if (err.response?.status === 429) {
+        setRateLimitError(err.response.data?.error || 'AI rate limit exceeded. Max 20 requests/hour.');
+      } else {
+        setAIData({ success: false, content: err.message });
+      }
     }
     setAILoading(false);
+  };
+
+  const toggleBidSelect = (id) => {
+    setSelectedBids((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 5) return prev;
+      return [...prev, id];
+    });
+  };
+
+  const handleCompareBids = async () => {
+    if (selectedBids.length < 2) {
+      alert('Select at least 2 contractors to compare.');
+      return;
+    }
+    setBidCompareLoading(true);
+    setBidCompareResult(null);
+    setRateLimitError(null);
+    try {
+      const { data } = await API.post('/contractors/compare-bids', { contractor_ids: selectedBids });
+      setBidCompareResult(data);
+      loadAIHistory();
+    } catch (err) {
+      if (err.response?.status === 429) {
+        setRateLimitError(err.response.data?.error || 'AI rate limit exceeded. Max 20 requests/hour.');
+      } else {
+        setBidCompareResult({ error: err.response?.data?.error || err.message });
+      }
+    }
+    setBidCompareLoading(false);
   };
 
   const getBadge = (status) => {
@@ -91,8 +157,13 @@ export default function Contractors({ user, onLogout }) {
           <p>Manage and vet your renovation contractors</p>
         </div>
         <div className="header-actions">
-          <button className="btn btn-ai" onClick={() => { setShowAIMatch(true); setAIData(null); }}>
-            🤖 AI Match
+          {selectedBids.length >= 2 && (
+            <button className="btn btn-ai" onClick={() => { setShowBidCompare(true); setBidCompareResult(null); }}>
+              Compare {selectedBids.length} Bids
+            </button>
+          )}
+          <button className="btn btn-ai" onClick={() => { setShowAIMatch(true); setAIData(null); setAiMode('match'); }}>
+            AI Match
           </button>
           <button className="btn btn-primary" onClick={() => { setForm(emptyContractor); setEditing(false); setShowForm(true); }}>
             + New Contractor
@@ -100,10 +171,18 @@ export default function Contractors({ user, onLogout }) {
         </div>
       </div>
 
+      {selectedBids.length > 0 && (
+        <div style={{ background: '#1e293b', borderRadius: 8, padding: '10px 16px', marginBottom: 16, fontSize: 13, color: '#94a3b8' }}>
+          {selectedBids.length} contractor{selectedBids.length > 1 ? 's' : ''} selected for comparison (max 5).
+          <button className="btn btn-secondary btn-sm" style={{ marginLeft: 12 }} onClick={() => setSelectedBids([])}>Clear</button>
+        </div>
+      )}
+
       <div className="data-table-container">
         <table className="data-table">
           <thead>
             <tr>
+              <th style={{ width: 40 }}>Compare</th>
               <th>Name</th>
               <th>Specialty</th>
               <th>Rating</th>
@@ -115,7 +194,15 @@ export default function Contractors({ user, onLogout }) {
           </thead>
           <tbody>
             {items.map((item) => (
-              <tr key={item.id} onClick={() => setSelected(item)}>
+              <tr key={item.id} onClick={() => setSelected(item)} style={{ cursor: 'pointer' }}>
+                <td onClick={(e) => { e.stopPropagation(); toggleBidSelect(item.id); }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedBids.includes(item.id)}
+                    onChange={() => toggleBidSelect(item.id)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </td>
                 <td style={{ fontWeight: 600, color: '#f1f5f9' }}>{item.name}</td>
                 <td>{item.specialty}</td>
                 <td><span className="rating">{'★'.repeat(Math.round(item.rating))}{'☆'.repeat(5 - Math.round(item.rating))}</span> {item.rating}</td>
@@ -128,6 +215,19 @@ export default function Contractors({ user, onLogout }) {
           </tbody>
         </table>
       </div>
+      <Pagination page={pagination.page} totalPages={pagination.totalPages} onPageChange={(p) => load(p)} />
+
+      {/* AI History */}
+      {aiHistory.length > 0 && (
+        <div style={{ marginTop: 24, padding: 16, background: '#0f172a', borderRadius: 8, border: '1px solid #1e293b' }}>
+          <h3 style={{ color: '#94a3b8', fontSize: 13, marginBottom: 12 }}>Recent AI Analyses</h3>
+          {aiHistory.map((h) => (
+            <div key={h.id} style={{ fontSize: 12, color: '#64748b', padding: '6px 0', borderBottom: '1px solid #1e293b' }}>
+              <span style={{ color: '#475569' }}>{new Date(h.created_at).toLocaleDateString()}</span> — {h.result?.substring(0, 120)}...
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Detail Modal */}
       {selected && (
@@ -146,13 +246,13 @@ export default function Contractors({ user, onLogout }) {
                 <div className="detail-item"><div className="label">Phone</div><div className="value">{selected.phone}</div></div>
                 <div className="detail-item"><div className="label">Email</div><div className="value">{selected.email}</div></div>
                 <div className="detail-item"><div className="label">License</div><div className="value">{selected.license_number}</div></div>
-                <div className="detail-item"><div className="label">Insurance</div><div className="value">{selected.insurance_verified ? '✅ Verified' : '❌ Not Verified'}</div></div>
+                <div className="detail-item"><div className="label">Insurance</div><div className="value">{selected.insurance_verified ? 'Verified' : 'Not Verified'}</div></div>
                 <div className="detail-item"><div className="label">Location</div><div className="value">{selected.location}</div></div>
                 <div className="detail-item"><div className="label">Status</div><div className="value"><span className={`badge ${getBadge(selected.availability_status)}`}>{selected.availability_status}</span></div></div>
                 {selected.notes && <div className="detail-item detail-full"><div className="label">Notes</div><div className="value">{selected.notes}</div></div>}
               </div>
               <div className="detail-actions">
-                <button className="btn btn-ai btn-sm" onClick={() => handleAIVet(selected.id)}>🤖 AI Vet Report</button>
+                <button className="btn btn-ai btn-sm" onClick={() => handleAIVet(selected.id)}>AI Vet Report</button>
                 <button className="btn btn-primary btn-sm" onClick={() => handleEdit(selected)}>Edit</button>
                 <button className="btn btn-danger btn-sm" onClick={() => handleDelete(selected.id)}>Delete</button>
               </div>
@@ -172,7 +272,7 @@ export default function Contractors({ user, onLogout }) {
             <div className="modal-body">
               <div className="form-row">
                 <div className="form-group">
-                  <label>Name</label>
+                  <label>Name *</label>
                   <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div className="form-group">
@@ -243,16 +343,92 @@ export default function Contractors({ user, onLogout }) {
         </div>
       )}
 
-      {/* AI Match Modal */}
+      {/* Bid Comparator Modal */}
+      {showBidCompare && (
+        <div className="modal-overlay" onClick={() => setShowBidCompare(false)}>
+          <div className="modal modal-ai" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Contractor Bid Comparison</h2>
+              <button className="modal-close" onClick={() => setShowBidCompare(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              {rateLimitError && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: 16, marginBottom: 16, color: '#dc2626' }}>
+                  {rateLimitError}
+                </div>
+              )}
+              {!bidCompareResult && !bidCompareLoading && (
+                <div>
+                  <p style={{ color: '#94a3b8', marginBottom: 16 }}>
+                    Comparing {selectedBids.length} contractors: {items.filter(i => selectedBids.includes(i.id)).map(i => i.name).join(', ')}
+                  </p>
+                  <button className="btn btn-ai" onClick={handleCompareBids}>Run AI Comparison</button>
+                </div>
+              )}
+              {bidCompareLoading && (
+                <div style={{ textAlign: 'center', padding: 40, color: '#64748b' }}>Analyzing contractor bids...</div>
+              )}
+              {bidCompareResult && !bidCompareResult.error && bidCompareResult.structured && (
+                <div>
+                  <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                    <div style={{ color: '#4ade80', fontWeight: 700, marginBottom: 8 }}>Recommendation</div>
+                    <p style={{ color: '#cbd5e1' }}>{bidCompareResult.structured.recommendation}</p>
+                  </div>
+                  <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                    <div style={{ color: '#60a5fa', fontWeight: 700, marginBottom: 8 }}>Price Analysis</div>
+                    <p style={{ color: '#cbd5e1' }}>{bidCompareResult.structured.price_analysis}</p>
+                  </div>
+                  {bidCompareResult.structured.scope_gaps?.length > 0 && (
+                    <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                      <div style={{ color: '#f59e0b', fontWeight: 700, marginBottom: 8 }}>Scope Gaps</div>
+                      <ul style={{ color: '#cbd5e1', paddingLeft: 20 }}>
+                        {bidCompareResult.structured.scope_gaps.map((g, i) => <li key={i}>{g}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {bidCompareResult.structured.negotiation_tips?.length > 0 && (
+                    <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                      <div style={{ color: '#a78bfa', fontWeight: 700, marginBottom: 8 }}>Negotiation Tips</div>
+                      <ul style={{ color: '#cbd5e1', paddingLeft: 20 }}>
+                        {bidCompareResult.structured.negotiation_tips.map((t, i) => <li key={i}>{t}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {bidCompareResult.structured.winner_id && (
+                    <div style={{ background: '#14532d', borderRadius: 8, padding: 16, color: '#4ade80', fontWeight: 600 }}>
+                      Recommended Winner: {items.find(i => i.id === bidCompareResult.structured.winner_id)?.name || `ID ${bidCompareResult.structured.winner_id}`}
+                    </div>
+                  )}
+                </div>
+              )}
+              {bidCompareResult?.error && (
+                <div style={{ color: '#ef4444' }}>{bidCompareResult.error}</div>
+              )}
+              {bidCompareResult && (
+                <div style={{ marginTop: 16 }}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => { setBidCompareResult(null); setRateLimitError(null); }}>New Comparison</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Match/Vet Modal */}
       {showAIMatch && (
         <div className="modal-overlay" onClick={() => setShowAIMatch(false)}>
           <div className="modal modal-ai" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>🤖 AI Contractor Analysis</h2>
+              <h2>AI Contractor Analysis</h2>
               <button className="modal-close" onClick={() => setShowAIMatch(false)}>&times;</button>
             </div>
             <div className="modal-body">
-              {!aiData && !aiLoading && (
+              {rateLimitError && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: 16, marginBottom: 16, color: '#dc2626' }}>
+                  {rateLimitError}
+                </div>
+              )}
+              {!aiData && !aiLoading && aiMode === 'match' && (
                 <div className="ai-form">
                   <div className="form-group">
                     <label>Project Description</label>
@@ -274,7 +450,7 @@ export default function Contractors({ user, onLogout }) {
               <AIResponse data={aiData} loading={aiLoading} />
               {aiData && (
                 <div style={{ marginTop: 16 }}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => { setAIData(null); setAILoading(false); }}>New Analysis</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => { setAIData(null); setAILoading(false); setRateLimitError(null); }}>New Analysis</button>
                 </div>
               )}
             </div>

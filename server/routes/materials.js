@@ -6,8 +6,15 @@ const router = express.Router();
 
 router.get('/', auth, async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM materials ORDER BY category, created_at DESC');
-    res.json(result.rows);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    const [result, countResult] = await Promise.all([
+      db.query('SELECT * FROM materials ORDER BY category, created_at DESC LIMIT $1 OFFSET $2', [limit, offset]),
+      db.query('SELECT COUNT(*) FROM materials'),
+    ]);
+    const total = parseInt(countResult.rows[0].count);
+    res.json({ data: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -49,6 +56,36 @@ router.delete('/:id', auth, async (req, res) => {
     const result = await db.query('DELETE FROM materials WHERE id = $1 RETURNING *', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'Deleted', item: result.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// AI: Material cost estimator
+router.post('/ai/cost-estimate', auth, async (req, res) => {
+  try {
+    const { project_scope, square_footage, room, region, quality_tier } = req.body;
+    const existing = await db.query('SELECT name, category, unit, unit_price, supplier FROM materials WHERE ($1::text IS NULL OR room = $1) ORDER BY category', [room || null]);
+
+    const prompt = `Estimate materials cost for this renovation project.
+
+Project scope: ${project_scope || 'Not provided'}
+Square footage: ${square_footage || 'unspecified'}
+Room: ${room || 'whole-project'}
+Region: ${region || 'unspecified'}
+Quality tier: ${quality_tier || 'mid-grade'}
+
+Existing materials catalog (use as price anchors when relevant):
+${existing.rows.slice(0, 80).map(m => `- ${m.name} (${m.category}): $${m.unit_price}/${m.unit} via ${m.supplier || 'n/a'}`).join('\n')}
+
+Return:
+1. Itemized estimate by category (framing, plumbing, electrical, drywall, flooring, fixtures, finishes) with quantity, unit cost, and subtotal
+2. Low / mid / high totals
+3. Regional pricing notes
+4. Top 5 cost-saving substitutions without major quality loss
+5. Items most exposed to supply-chain volatility
+6. Confidence (0-100) and assumptions`;
+
+    const aiResult = await queryAI(prompt, 'You are a residential renovation materials estimator. Produce calibrated, regionally-aware estimates.');
+    res.json(aiResult);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

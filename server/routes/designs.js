@@ -4,10 +4,28 @@ const auth = require('../middleware/auth');
 const { queryAI } = require('../services/openrouter');
 const router = express.Router();
 
+// Add AI-generated columns if not present (fire-and-forget)
+db.query(`ALTER TABLE designs ADD COLUMN IF NOT EXISTS visualization_notes TEXT`).catch(() => {});
+db.query(`ALTER TABLE designs ADD COLUMN IF NOT EXISTS ai_generated BOOLEAN DEFAULT FALSE`).catch(() => {});
+
+function persistAIResult(userId, route, entityId, result) {
+  db.query(
+    'INSERT INTO ai_analyses (user_id, route, entity_id, result) VALUES ($1,$2,$3,$4)',
+    [userId, route, entityId, typeof result === 'string' ? result : JSON.stringify(result)]
+  ).catch(() => {});
+}
+
 router.get('/', auth, async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM designs ORDER BY created_at DESC');
-    res.json(result.rows);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    const [result, countResult] = await Promise.all([
+      db.query('SELECT * FROM designs ORDER BY created_at DESC LIMIT $1 OFFSET $2', [limit, offset]),
+      db.query('SELECT COUNT(*) FROM designs'),
+    ]);
+    const total = parseInt(countResult.rows[0].count);
+    res.json({ data: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -62,7 +80,7 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// AI: Design visualization and suggestions
+// AI: Design visualization and suggestions — auto-persist result
 router.post('/ai/visualize', auth, async (req, res) => {
   try {
     const { room_type, style, dimensions, budget, preferences } = req.body;
@@ -87,6 +105,17 @@ Provide:
 10. 3D visualization description (as if describing to a renderer)`;
 
     const aiResult = await queryAI(prompt, 'You are an expert interior designer specializing in home renovations. Provide vivid, detailed design descriptions.');
+    persistAIResult(req.user?.id, 'designs/ai/visualize', null, aiResult.content);
+
+    // Auto-persist design to designs table
+    if (aiResult.success && room_type) {
+      db.query(
+        `INSERT INTO designs (room_type, style, dimensions, estimated_cost, status, notes, visualization_notes, ai_generated)
+         VALUES ($1,$2,$3,$4,'ai_generated',$5,$6,true) RETURNING id`,
+        [room_type, style || 'AI Generated', dimensions, budget, `AI Visualization for ${room_type}`, aiResult.content]
+      ).catch(() => {});
+    }
+
     res.json(aiResult);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -116,10 +145,21 @@ Provide:
 6. Long-term value considerations`;
 
     const aiResult = await queryAI(prompt, 'You are an expert interior designer who creates cohesive whole-home design plans.');
+    persistAIResult(req.user?.id, 'designs/ai/recommend', null, aiResult.content);
     res.json(aiResult);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Get recent AI analyses for designs
+router.get('/ai/history', auth, async (req, res) => {
+  try {
+    const result = await db.query(
+      "SELECT * FROM ai_analyses WHERE route LIKE 'designs%' ORDER BY created_at DESC LIMIT 3"
+    );
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 module.exports = router;
