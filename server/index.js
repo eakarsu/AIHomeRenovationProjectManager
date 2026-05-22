@@ -56,6 +56,7 @@ app.use('/api/integrations', require('./routes/integrations'));
 app.use('/api/performance', require('./routes/performance'));
 app.use('/api/vision-progress', require('./routes/visionProgressTracker'));
 app.use('/api/change-order', require('./routes/changeOrderAdvisor'));
+app.use('/api/permit-inspection-readiness', require('./routes/permitInspectionReadiness'));
 
 // Apply AI rate limiter to all AI sub-routes
 const aiRoutes = [

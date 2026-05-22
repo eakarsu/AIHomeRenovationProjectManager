@@ -22,6 +22,7 @@ import Photos from './pages/Photos';
 import Payments from './pages/Payments';
 import Reports from './pages/Reports';
 import AdvancedAITools from './pages/AdvancedAITools';
+import PermitInspectionReadiness from './pages/PermitInspectionReadiness';
 import './App.css';
 
 // === Batch 04 Gaps & Frontend Mounts ===
@@ -42,6 +43,11 @@ import GapNoFormalChangeOrderWorkflow from './pages/GapNoFormalChangeOrderWorkfl
 import GapNoContractorsupplierMarketplace from './pages/GapNoContractorsupplierMarketplace';
 import GapNoWebhookSurface from './pages/GapNoWebhookSurface';
 import GapNoRealTimeHomeownerUpdateFeed from './pages/GapNoRealTimeHomeownerUpdateFeed';
+
+import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
+import CodexOperationsFeature from './pages/CodexOperationsFeature';
+
+import TimelineView from './pages/TimelineView';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -67,6 +73,10 @@ function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/insights/timeline" element={<TimelineView />} />
+        <Route path="/codex/custom-viz" element={<CodexCustomVizFeature />} />
+        <Route path="/codex/operations" element={<CodexOperationsFeature />} />
+
         <Route path="/login" element={token ? <Navigate to="/" /> : <Login onLogin={handleLogin} />} />
         <Route path="/" element={<P><Dashboard {...props} /></P>} />
         <Route path="/projects" element={<P><Projects {...props} /></P>} />
@@ -89,6 +99,7 @@ function App() {
         <Route path="/payments" element={<P><Payments {...props} /></P>} />
         <Route path="/reports" element={<P><Reports {...props} /></P>} />
         <Route path="/advanced-ai" element={<P><AdvancedAITools {...props} /></P>} />
+        <Route path="/permit-inspection-readiness" element={<P><PermitInspectionReadiness {...props} /></P>} />
       
           {/* // === Batch 04 Gaps & Frontend Mounts === */}
           <Route path="/cf-agentic-project-coordinator-scheduling-i" element={<CfAgenticProjectCoordinatorSchedulingI />} />
