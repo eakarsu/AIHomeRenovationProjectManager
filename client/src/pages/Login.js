@@ -20,11 +20,6 @@ export default function Login({ onLogin }) {
     setLoading(false);
   };
 
-  const quickFill = () => {
-    setEmail('john@example.com');
-    setPassword('password123');
-  };
-
   return (
     <div className="login-container">
       <div className="login-card">
@@ -62,12 +57,6 @@ export default function Login({ onLogin }) {
           </button>
         </form>
 
-        <div className="quick-fill">
-          <p>Demo Account</p>
-          <button className="btn btn-secondary btn-sm btn-full" onClick={quickFill}>
-            Fill Demo Credentials
-          </button>
-        </div>
       </div>
     </div>
   );

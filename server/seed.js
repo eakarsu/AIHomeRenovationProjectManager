@@ -2,6 +2,9 @@ const db = require('./db');
 const bcrypt = require('bcryptjs');
 
 async function seed() {
+  if (process.env.NODE_ENV === 'production' || process.env.ALLOW_DEMO_SEED !== 'true') {
+    throw new Error('Destructive demo seed refused. Set ALLOW_DEMO_SEED=true outside production.');
+  }
   console.log('🌱 Starting database seed...');
 
   // Create tables
