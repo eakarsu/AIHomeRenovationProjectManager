@@ -1,6 +1,12 @@
 const db = require('./db');
 const bcrypt = require('bcryptjs');
 
+function requireDemoPassword() {
+  const password = process.env.DEMO_PASSWORD || process.env.SEED_DEMO_PASSWORD || process.env.DEMO_SEED_PASSWORD || '';
+  if (password.length < 12 || password.length > 1024) throw new Error('DEMO_PASSWORD must contain 12-1024 characters');
+  return password;
+}
+
 async function seed() {
   if (process.env.NODE_ENV === 'production' || process.env.ALLOW_DEMO_SEED !== 'true') {
     throw new Error('Destructive demo seed refused. Set ALLOW_DEMO_SEED=true outside production.');
@@ -341,7 +347,7 @@ async function seed() {
   console.log('✅ Tables created');
 
   // Seed users
-  const hash = await bcrypt.hash('password123', 10);
+  const hash = await bcrypt.hash(requireDemoPassword(), 10);
   await db.query(
     `INSERT INTO users (name, email, password_hash) VALUES
       ('John Homeowner', 'john@example.com', $1),
@@ -740,7 +746,7 @@ async function seed() {
   console.log('✅ Daily logs seeded (10)');
 
   console.log('\n🎉 Database seeding complete!');
-  console.log('📧 Demo login: john@example.com / password123');
+  console.log('Demo login users provisioned from the local environment.');
   process.exit(0);
 }
 
