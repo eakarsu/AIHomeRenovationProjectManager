@@ -6,14 +6,12 @@ async function queryAI(prompt, systemPrompt = '') {
   const model = process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022';
 
   if (!apiKey || apiKey === 'your_openrouter_api_key_here') {
-    return {
-      success: false,
-      content: 'OpenRouter API key not configured. Please add your key to the .env file.',
-    };
+    throw new Error('OPENROUTER_API_KEY not configured');
   }
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -33,18 +31,16 @@ async function queryAI(prompt, systemPrompt = '') {
     });
 
     const data = await response.json();
-    if (data.error) {
-      return { success: false, content: data.error.message || 'AI service error' };
-    }
+    if (!response.ok || data.error) throw new Error(data.error?.message || `OpenRouter request failed with HTTP ${response.status}`);
+    const content = data.choices?.[0]?.message?.content;
+    if (!content || !String(content).trim()) throw new Error('OpenRouter returned empty content');
     return {
       success: true,
-      content: data.choices?.[0]?.message?.content || 'No response from AI',
+      content,
       model: data.model,
       usage: data.usage,
     };
-  } catch (err) {
-    return { success: false, content: `AI service error: ${err.message}` };
-  }
+  } catch (err) { throw err; }
 }
 
 async function queryAIVision(imageBase64, mimeType, systemPrompt = '') {
@@ -52,14 +48,12 @@ async function queryAIVision(imageBase64, mimeType, systemPrompt = '') {
   const model = process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022';
 
   if (!apiKey || apiKey === 'your_openrouter_api_key_here') {
-    return {
-      success: false,
-      content: 'OpenRouter API key not configured. Please add your key to the .env file.',
-    };
+    throw new Error('OPENROUTER_API_KEY not configured');
   }
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -91,18 +85,16 @@ async function queryAIVision(imageBase64, mimeType, systemPrompt = '') {
     });
 
     const data = await response.json();
-    if (data.error) {
-      return { success: false, content: data.error.message || 'AI service error' };
-    }
+    if (!response.ok || data.error) throw new Error(data.error?.message || `OpenRouter request failed with HTTP ${response.status}`);
+    const content = data.choices?.[0]?.message?.content;
+    if (!content || !String(content).trim()) throw new Error('OpenRouter returned empty content');
     return {
       success: true,
-      content: data.choices?.[0]?.message?.content || 'No response from AI',
+      content,
       model: data.model,
       usage: data.usage,
     };
-  } catch (err) {
-    return { success: false, content: `AI service error: ${err.message}` };
-  }
+  } catch (err) { throw err; }
 }
 
 module.exports = { queryAI, queryAIVision };

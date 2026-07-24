@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 // === Batch 04 Gaps & Frontend Mounts ===
 require('dotenv').config({ path: '../.env' });
 const { validateRuntime } = require('./governance/runtime');
@@ -19,7 +19,7 @@ app.use(express.json({ limit: '20mb' }));
 const aiRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 20,
-  keyGenerator: (req) => req.user ? `user:${req.user.id}` : req.ip,
+  keyGenerator: (req) => req.user ? `user:${req.user.id}` : ipKeyGenerator(req.ip),
   message: { error: 'AI rate limit exceeded. Max 20 requests/hour.' },
   standardHeaders: true,
   legacyHeaders: false,
