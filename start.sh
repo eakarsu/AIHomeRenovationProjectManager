@@ -138,7 +138,7 @@ backend_pid="$!"
 
 (
   cd "$project_dir/client"
-  BROWSER=none HOST="${HOST:-127.0.0.1}" PORT="$frontend_port" REACT_APP_API_ORIGIN="http://127.0.0.1:$backend_port" npm start
+  BROWSER=none HOST="${HOST:-127.0.0.1}" PORT="$frontend_port" REACT_APP_API_ORIGIN="http://127.0.0.1:$backend_port" REACT_APP_API_BASE="http://127.0.0.1:$backend_port/api" npm start
 ) &
 frontend_pid="$!"
 
