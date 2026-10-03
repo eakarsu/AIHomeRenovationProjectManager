@@ -25,7 +25,9 @@ export default function Designs({ user, onLogout }) {
 
   const load = async () => {
     const { data } = await API.get('/designs');
-    setItems(data);
+    const designs = Array.isArray(data) ? data : data?.data;
+    if (!Array.isArray(designs)) throw new Error('Invalid designs response');
+    setItems(designs);
   };
 
   const handleSave = async () => {
