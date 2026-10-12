@@ -103,7 +103,8 @@ export default function Projects({ user, onLogout }) {
           <h3 style={{ color: '#94a3b8', fontSize: 13, marginBottom: 12 }}>Recent AI Analyses</h3>
           {aiHistory.map((h) => (
             <div key={h.id} style={{ fontSize: 12, color: '#64748b', padding: '6px 0', borderBottom: '1px solid #1e293b' }}>
-              <span style={{ color: '#475569' }}>{new Date(h.created_at).toLocaleDateString()}</span> — {h.result?.substring(0, 120)}...
+              <span style={{ color: '#475569' }}>{new Date(h.created_at).toLocaleDateString()}</span>
+              <AIResponse data={{ content: h.result }} />
             </div>
           ))}
         </div>

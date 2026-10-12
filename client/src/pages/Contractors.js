@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import AIResponse from '../components/AIResponse';
+import AIReport from '../components/AIReport';
+import AIPromptPresets from '../components/AIPromptPresets';
 import Pagination from '../components/Pagination';
 import API from '../services/api';
 
@@ -223,7 +225,8 @@ export default function Contractors({ user, onLogout }) {
           <h3 style={{ color: '#94a3b8', fontSize: 13, marginBottom: 12 }}>Recent AI Analyses</h3>
           {aiHistory.map((h) => (
             <div key={h.id} style={{ fontSize: 12, color: '#64748b', padding: '6px 0', borderBottom: '1px solid #1e293b' }}>
-              <span style={{ color: '#475569' }}>{new Date(h.created_at).toLocaleDateString()}</span> — {h.result?.substring(0, 120)}...
+              <span style={{ color: '#475569' }}>{new Date(h.created_at).toLocaleDateString()}</span>
+              <AIResponse data={{ content: h.result }} />
             </div>
           ))}
         </div>
@@ -369,37 +372,12 @@ export default function Contractors({ user, onLogout }) {
                 <div style={{ textAlign: 'center', padding: 40, color: '#64748b' }}>Analyzing contractor bids...</div>
               )}
               {bidCompareResult && !bidCompareResult.error && bidCompareResult.structured && (
-                <div>
-                  <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                    <div style={{ color: '#4ade80', fontWeight: 700, marginBottom: 8 }}>Recommendation</div>
-                    <p style={{ color: '#cbd5e1' }}>{bidCompareResult.structured.recommendation}</p>
-                  </div>
-                  <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                    <div style={{ color: '#60a5fa', fontWeight: 700, marginBottom: 8 }}>Price Analysis</div>
-                    <p style={{ color: '#cbd5e1' }}>{bidCompareResult.structured.price_analysis}</p>
-                  </div>
-                  {bidCompareResult.structured.scope_gaps?.length > 0 && (
-                    <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                      <div style={{ color: '#f59e0b', fontWeight: 700, marginBottom: 8 }}>Scope Gaps</div>
-                      <ul style={{ color: '#cbd5e1', paddingLeft: 20 }}>
-                        {bidCompareResult.structured.scope_gaps.map((g, i) => <li key={i}>{g}</li>)}
-                      </ul>
-                    </div>
+                <>
+                  <AIReport response={bidCompareResult.structured} title="Contractor bid comparison" />
+                  {bidCompareResult.structured.winner_id !== null && bidCompareResult.structured.winner_id !== undefined && items.find(i => i.id === bidCompareResult.structured.winner_id) && (
+                    <p>Recommended contractor: {items.find(i => i.id === bidCompareResult.structured.winner_id).name}</p>
                   )}
-                  {bidCompareResult.structured.negotiation_tips?.length > 0 && (
-                    <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                      <div style={{ color: '#a78bfa', fontWeight: 700, marginBottom: 8 }}>Negotiation Tips</div>
-                      <ul style={{ color: '#cbd5e1', paddingLeft: 20 }}>
-                        {bidCompareResult.structured.negotiation_tips.map((t, i) => <li key={i}>{t}</li>)}
-                      </ul>
-                    </div>
-                  )}
-                  {bidCompareResult.structured.winner_id && (
-                    <div style={{ background: '#14532d', borderRadius: 8, padding: 16, color: '#4ade80', fontWeight: 600 }}>
-                      Recommended Winner: {items.find(i => i.id === bidCompareResult.structured.winner_id)?.name || `ID ${bidCompareResult.structured.winner_id}`}
-                    </div>
-                  )}
-                </div>
+                </>
               )}
               {bidCompareResult?.error && (
                 <div style={{ color: '#ef4444' }}>{bidCompareResult.error}</div>
@@ -430,6 +408,11 @@ export default function Contractors({ user, onLogout }) {
               )}
               {!aiData && !aiLoading && aiMode === 'match' && (
                 <div className="ai-form">
+                  <AIPromptPresets value={matchForm} onChange={setMatchForm} presets={[
+                    { label: 'Kitchen renovation', values: { project_description: 'Renovate a 180 sq ft kitchen with new cabinets, counters, lighting, and minor plumbing changes.', budget: '55000', timeline: '4 months' } },
+                    { label: 'Bathroom remodel', values: { project_description: 'Remodel a primary bathroom with a walk-in shower, new tile, vanity, and ventilation.', budget: '30000', timeline: '3 months' } },
+                    { label: 'Basement finish', values: { project_description: 'Finish a 700 sq ft basement with a family room, office, lighting, and code-compliant egress.', budget: '65000', timeline: '5 months' } },
+                  ]} />
                   <div className="form-group">
                     <label>Project Description</label>
                     <textarea value={matchForm.project_description} onChange={(e) => setMatchForm({ ...matchForm, project_description: e.target.value })} placeholder="Describe your renovation project..." />

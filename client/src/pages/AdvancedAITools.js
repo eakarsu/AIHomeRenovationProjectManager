@@ -1,6 +1,9 @@
+
+import FullAIExamples, { useFullAIExamples } from "../components/FullAIExamples.jsx";
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import AIResponse from '../components/AIResponse';
+import AIPromptPresets from '../components/AIPromptPresets';
 import API from '../services/api';
 
 const TABS = [
@@ -10,6 +13,8 @@ const TABS = [
 ];
 
 export default function AdvancedAITools({ user, onLogout }) {
+  const fullAIExamples = useFullAIExamples();
+
   const [tab, setTab] = useState(TABS[0].id);
   const [projects, setProjects] = useState([]);
   const [inspections, setInspections] = useState([]);
@@ -116,12 +121,17 @@ export default function AdvancedAITools({ user, onLogout }) {
         <p style={{ color: '#94a3b8', marginBottom: 16 }}>{TABS.find((t) => t.id === tab)?.desc}</p>
 
         {tab === 'predict' && (
-          <form onSubmit={onPredict}>
+          <form onSubmit={onPredict} data-full-ai-workspace="AdvancedAITools"><FullAIExamples controller={fullAIExamples} disabled={Boolean(aiLoading)} />
+            <AIPromptPresets value={predictForm} onChange={setPredictForm} presets={[
+              { label: 'Kitchen schedule', values: { notes: 'Cabinet delivery may slip two weeks. Review rough electrical, drywall, and countertop dependencies before changing the completion date.' } },
+              { label: 'Bathroom sequence', values: { notes: 'Waterproofing inspection must be complete before tiling. Assess plumbing and tile crew handoffs.' } },
+              { label: 'Weather delay', values: { notes: 'Exterior work may lose five days to rain. Identify indoor tasks that can proceed while the deck work is paused.' } },
+            ]} />
             <div className="form-group">
               <label>Project</label>
               <select
                 value={predictForm.project_id}
-                onChange={(e) => setPredictForm({ ...predictForm, project_id: e.target.value })}
+                onChange={(e) => setPredictForm({ ...predictForm, project_id: e.target.value })} data-full-ai-field={fullAIExamples.bind({ current: predictForm.project_id, change: (e) => setPredictForm({ ...predictForm, project_id: e.target.value }), label: "predictForm.project_id", manual: false, json: false, sample: '' }, "p1-4470", undefined)}
               >
                 <option value="">-- Optional --</option>
                 {projects.map((p) => (
@@ -134,7 +144,7 @@ export default function AdvancedAITools({ user, onLogout }) {
               <textarea
                 value={predictForm.notes}
                 onChange={(e) => setPredictForm({ ...predictForm, notes: e.target.value })}
-                placeholder="Known constraints, dependencies, weather, supply chain risks..."
+                placeholder="Known constraints, dependencies, weather, supply chain risks..." data-full-ai-field={fullAIExamples.bind({ current: predictForm.notes, change: (e) => setPredictForm({ ...predictForm, notes: e.target.value }), label: "predictForm.notes", manual: false, json: false, sample: '' }, "p1-5002", undefined)}
               />
             </div>
             <button className="btn btn-primary" type="submit" disabled={aiLoading}>
@@ -144,13 +154,18 @@ export default function AdvancedAITools({ user, onLogout }) {
         )}
 
         {tab === 'estimate' && (
-          <form onSubmit={onEstimate}>
+          <form onSubmit={onEstimate} data-full-ai-workspace="AdvancedAITools"><FullAIExamples controller={fullAIExamples} disabled={Boolean(aiLoading)} />
+            <AIPromptPresets value={estimateForm} onChange={setEstimateForm} presets={[
+              { label: 'Kitchen materials', values: { region: 'Austin, TX', tier: 'mid', items: 'Shaker cabinets - 18 linear feet\nQuartz countertop - 35 square feet\nPorcelain backsplash tile - 45 square feet' } },
+              { label: 'Bathroom materials', values: { region: 'Portland, OR', tier: 'mid', items: 'Porcelain floor tile - 90 square feet\nWaterproofing membrane - 120 square feet\nVanity - 60 inches' } },
+              { label: 'Basement materials', values: { region: 'Denver, CO', tier: 'low', items: 'Drywall sheets - 80\n2x4 lumber - 200 boards\nLuxury vinyl plank - 700 square feet' } },
+            ]} />
             <div className="form-row">
               <div className="form-group">
                 <label>Project</label>
                 <select
                   value={estimateForm.project_id}
-                  onChange={(e) => setEstimateForm({ ...estimateForm, project_id: e.target.value })}
+                  onChange={(e) => setEstimateForm({ ...estimateForm, project_id: e.target.value })} data-full-ai-field={fullAIExamples.bind({ current: estimateForm.project_id, change: (e) => setEstimateForm({ ...estimateForm, project_id: e.target.value }), label: "estimateForm.project_id", manual: false, json: false, sample: '' }, "p1-5686", undefined)}
                 >
                   <option value="">-- Optional --</option>
                   {projects.map((p) => (
@@ -163,14 +178,14 @@ export default function AdvancedAITools({ user, onLogout }) {
                 <input
                   value={estimateForm.region}
                   onChange={(e) => setEstimateForm({ ...estimateForm, region: e.target.value })}
-                  placeholder="e.g., Austin, TX"
+                  placeholder="e.g., Austin, TX" data-full-ai-field={fullAIExamples.bind({ current: estimateForm.region, change: (e) => setEstimateForm({ ...estimateForm, region: e.target.value }), label: "estimateForm.region", manual: false, json: false, sample: '' }, "p1-6232", undefined)}
                 />
               </div>
               <div className="form-group">
                 <label>Tier</label>
                 <select
                   value={estimateForm.tier}
-                  onChange={(e) => setEstimateForm({ ...estimateForm, tier: e.target.value })}
+                  onChange={(e) => setEstimateForm({ ...estimateForm, tier: e.target.value })} data-full-ai-field={fullAIExamples.bind({ current: estimateForm.tier, change: (e) => setEstimateForm({ ...estimateForm, tier: e.target.value }), label: "estimateForm.tier", manual: false, json: false, sample: 'mid' }, "p1-6566", undefined)}
                 >
                   <option value="low">Low</option>
                   <option value="mid">Mid</option>
@@ -184,7 +199,7 @@ export default function AdvancedAITools({ user, onLogout }) {
                 rows={6}
                 value={estimateForm.items}
                 onChange={(e) => setEstimateForm({ ...estimateForm, items: e.target.value })}
-                placeholder={'2x4 lumber - 200 boards\nDrywall sheets - 80\nKitchen cabinets - 12 LF'}
+                placeholder={'2x4 lumber - 200 boards\nDrywall sheets - 80\nKitchen cabinets - 12 LF'} data-full-ai-field={fullAIExamples.bind({ current: estimateForm.items, change: (e) => setEstimateForm({ ...estimateForm, items: e.target.value }), label: "estimateForm.items", manual: false, json: false, sample: '' }, "p1-7057", undefined)}
               />
             </div>
             <button className="btn btn-primary" type="submit" disabled={aiLoading}>
@@ -194,13 +209,19 @@ export default function AdvancedAITools({ user, onLogout }) {
         )}
 
         {tab === 'insight' && (
-          <form onSubmit={onInsight}>
+          <form onSubmit={onInsight} data-full-ai-workspace="AdvancedAITools"><FullAIExamples controller={fullAIExamples} disabled={Boolean(aiLoading)} />
+            <AIPromptPresets value={insightForm} onChange={setInsightForm} presets={[
+              { label: 'First available', values: { inspection_id: insightForm.inspection_id || inspections[0]?.id || '' } },
+              { label: 'Next available', values: { inspection_id: insightForm.inspection_id || inspections[1]?.id || inspections[0]?.id || '' } },
+              { label: 'Latest available', values: { inspection_id: insightForm.inspection_id || inspections[inspections.length - 1]?.id || '' } },
+            ]} />
+            {!inspections.length && <p role="status">A saved inspection is required before an insight can be generated.</p>}
             <div className="form-group">
               <label>Inspection *</label>
               <select
                 value={insightForm.inspection_id}
                 onChange={(e) => setInsightForm({ ...insightForm, inspection_id: e.target.value })}
-                required
+                required data-full-ai-field={fullAIExamples.bind({ current: insightForm.inspection_id, change: (e) => setInsightForm({ ...insightForm, inspection_id: e.target.value }), label: "insightForm.inspection_id", manual: false, json: false, sample: '' }, "p1-7733", undefined)}
               >
                 <option value="">-- Select Inspection --</option>
                 {inspections.map((i) => (

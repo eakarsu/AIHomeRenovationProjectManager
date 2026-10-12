@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import AIResponse from '../components/AIResponse';
+import AIPromptPresets from '../components/AIPromptPresets';
 import API from '../services/api';
 
 const emptyPermit = {
@@ -200,6 +201,11 @@ export default function Permits({ user, onLogout }) {
             <div className="modal-body">
               {!aiData && !aiLoading && (
                 <div className="ai-form">
+                  <AIPromptPresets value={aiForm} onChange={setAIForm} presets={[
+                    { label: 'Kitchen remodel', values: { project_type: 'Kitchen remodel', location: 'Austin, TX', scope: 'Move the sink, add circuits, replace cabinets, and open a non-load-bearing partition.' } },
+                    { label: 'Bathroom addition', values: { project_type: 'Bathroom addition', location: 'Portland, OR', scope: 'Add a second-floor bathroom with new plumbing, ventilation, and electrical outlets.' } },
+                    { label: 'Deck rebuild', values: { project_type: 'Deck rebuild', location: 'Denver, CO', scope: 'Replace a rear deck, including footings, stairs, guardrails, and exterior lighting.' } },
+                  ]} />
                   <div className="form-group"><label>Project Type</label><input value={aiForm.project_type} onChange={(e) => setAIForm({ ...aiForm, project_type: e.target.value })} placeholder="e.g., Kitchen Renovation" /></div>
                   <div className="form-group"><label>Location</label><input value={aiForm.location} onChange={(e) => setAIForm({ ...aiForm, location: e.target.value })} placeholder="e.g., Austin, TX" /></div>
                   <div className="form-group"><label>Scope of Work</label><textarea value={aiForm.scope} onChange={(e) => setAIForm({ ...aiForm, scope: e.target.value })} placeholder="Describe the scope..." /></div>

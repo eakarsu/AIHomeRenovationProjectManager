@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import AIResponse from '../components/AIResponse';
+import AIPromptPresets from '../components/AIPromptPresets';
 import API from '../services/api';
 
 const emptyDesign = {
@@ -199,6 +200,11 @@ export default function Designs({ user, onLogout }) {
             <div className="modal-body">
               {!aiData && !aiLoading && (
                 <div className="ai-form">
+                  <AIPromptPresets value={aiForm} onChange={setAIForm} presets={[
+                    { label: 'Warm kitchen', values: { room_type: 'Kitchen', style: 'Warm contemporary', dimensions: '15 x 18 ft', budget: '42000', preferences: 'Natural oak cabinets, durable light counters, layered task lighting, and a family-friendly island.' } },
+                    { label: 'Calm bathroom', values: { room_type: 'Bathroom', style: 'Modern spa', dimensions: '10 x 12 ft', budget: '28000', preferences: 'Walk-in shower, slip-resistant tile, warm lighting, and ample concealed storage.' } },
+                    { label: 'Flexible living room', values: { room_type: 'Living room', style: 'Transitional', dimensions: '18 x 20 ft', budget: '18000', preferences: 'Flexible seating, easy-clean finishes, improved daylight, and space for books.' } },
+                  ]} />
                   {aiMode === 'visualize' ? (<>
                     <div className="form-row">
                       <div className="form-group"><label>Room Type</label><input value={aiForm.room_type} onChange={(e) => setAIForm({ ...aiForm, room_type: e.target.value })} placeholder="e.g., Kitchen" /></div>

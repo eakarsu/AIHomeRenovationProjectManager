@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import AIResponse from '../components/AIResponse';
+import AIPromptPresets from '../components/AIPromptPresets';
 import API from '../services/api';
 
 const empty = { subject:'', message:'', from_name:'', to_name:'', comm_type:'email', comm_date:'', priority:'normal', status:'open', related_to:'', follow_up_date:'', notes:'' };
@@ -94,6 +95,11 @@ export default function Communications({ user, onLogout }) {
         <div className="modal-header"><h2>🤖 AI Draft Message</h2><button className="modal-close" onClick={()=>setShowAI(false)}>&times;</button></div>
         <div className="modal-body">
           {!aiData && !aiLoading && <div className="ai-form">
+            <AIPromptPresets value={aiForm} onChange={setAIForm} presets={[
+              { label: 'Schedule update', values: { recipient: 'General contractor', tone: 'professional', topic: 'Kitchen schedule update', context: 'Ask for the revised cabinet delivery date and identify tasks that can continue while the shipment is pending.' } },
+              { label: 'Budget follow-up', values: { recipient: 'Homeowner', tone: 'friendly', topic: 'Bathroom fixture budget', context: 'Summarize the proposed fixture choices and request a decision before placing an order.' } },
+              { label: 'Safety issue', values: { recipient: 'Site supervisor', tone: 'urgent', topic: 'Open stairwell protection', context: 'Request a same-day site review and temporary barrier before work resumes near the stairwell.' } },
+            ]} />
             <div className="form-row"><div className="form-group"><label>Recipient</label><input value={aiForm.recipient} onChange={e=>setAIForm({...aiForm,recipient:e.target.value})} placeholder="e.g., General Contractor" /></div><div className="form-group"><label>Tone</label><select value={aiForm.tone} onChange={e=>setAIForm({...aiForm,tone:e.target.value})}><option value="professional">Professional</option><option value="friendly">Friendly</option><option value="firm">Firm</option><option value="urgent">Urgent</option></select></div></div>
             <div className="form-group"><label>Topic</label><input value={aiForm.topic} onChange={e=>setAIForm({...aiForm,topic:e.target.value})} placeholder="e.g., Schedule delay concern" /></div>
             <div className="form-group"><label>Context</label><textarea value={aiForm.context} onChange={e=>setAIForm({...aiForm,context:e.target.value})} placeholder="Additional details..." /></div>

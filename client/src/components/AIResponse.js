@@ -1,5 +1,5 @@
 import React from 'react';
-import ReactMarkdown from 'react-markdown';
+import AIReport from './AIReport';
 
 export default function AIResponse({ data, loading }) {
   if (loading) {
@@ -14,6 +14,7 @@ export default function AIResponse({ data, loading }) {
   }
 
   if (!data) return null;
+  if (data.success !== false) return <AIReport response={data} title="AI Analysis" />;
 
   return (
     <div className="ai-response">
@@ -23,11 +24,7 @@ export default function AIResponse({ data, loading }) {
         {data.model && <span className="model-tag">{data.model}</span>}
       </div>
       <div className="ai-content">
-        {data.success === false ? (
-          <p style={{ color: '#f87171' }}>{data.content}</p>
-        ) : (
-          <ReactMarkdown>{data.content}</ReactMarkdown>
-        )}
+        <p style={{ color: '#f87171' }}>{data.content}</p>
       </div>
       {data.usage && (
         <div style={{ marginTop: 12, fontSize: 11, color: '#64748b' }}>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
 import Pagination from '../components/Pagination';
 import API from '../services/api';
+import AIReport from '../components/AIReport';
 
 const emptyPhoto = {
   title: '', room: '', phase: 'before', description: '', photo_url: '',
@@ -23,10 +24,19 @@ export default function Photos({ user, onLogout }) {
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
   const [aiPhotoResult, setAiPhotoResult] = useState(null);
   const [projectId, setProjectId] = useState('');
+  const [availableProjects, setAvailableProjects] = useState([]);
   const [rateLimitError, setRateLimitError] = useState(null);
   const fileInputRef = useRef();
 
   useEffect(() => { load(1); }, []);
+  useEffect(() => {
+    if (!showAIAnalyze) return;
+    let active = true;
+    API.get('/projects').then(({ data }) => {
+      if (active) setAvailableProjects(Array.isArray(data) ? data : (data.data || []));
+    }).catch(() => { if (active) setAvailableProjects([]); });
+    return () => { active = false; };
+  }, [showAIAnalyze]);
 
   const load = async (page = 1) => {
     const params = new URLSearchParams({ page, limit: 20 });
@@ -217,6 +227,16 @@ export default function Photos({ user, onLogout }) {
               )}
               {!aiPhotoResult && !aiAnalyzing && (
                 <div>
+                  <div className="ai-preset-bar" aria-label="Photo analysis examples">
+                    <strong>Use a saved project</strong>
+                    <div className="ai-actions">{[
+                      { label: 'First saved project', project: availableProjects[0] },
+                      { label: 'Next saved project', project: availableProjects[1] || availableProjects[0] },
+                      { label: 'Last listed project', project: availableProjects[availableProjects.length - 1] },
+                    ].map(({ label, project }) => <button key={label} type="button" className="btn btn-secondary btn-sm" disabled={!project} onClick={() => setProjectId(projectId || String(project.id))}>{label}</button>)}</div>
+                    <p>A real image file is required. Choosing a project only fills the optional project reference and does not analyze or upload a file.</p>
+                    {!availableProjects.length && <p role="status">No saved projects are available for a project preset. You can leave the project optional field empty.</p>}
+                  </div>
                   <div className="form-group">
                     <label>Project ID (optional — auto-creates a daily log)</label>
                     <input
@@ -254,64 +274,10 @@ export default function Photos({ user, onLogout }) {
                   Analyzing renovation photo with AI...
                 </div>
               )}
-              {aiPhotoResult && !aiPhotoResult.error && aiPhotoResult.structured && (
-                <div>
-                  {/* Progress Assessment */}
-                  <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                    <div style={{ color: '#60a5fa', fontWeight: 700, marginBottom: 8 }}>Progress Assessment</div>
-                    <p style={{ color: '#cbd5e1' }}>{aiPhotoResult.structured.progress_assessment}</p>
-                  </div>
-
-                  {/* Completion percentage */}
-                  <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                    <div style={{ color: '#94a3b8', marginBottom: 8, fontSize: 13 }}>Completion Estimate</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ flex: 1, background: '#0f172a', borderRadius: 4, height: 12 }}>
-                        <div style={{
-                          width: `${aiPhotoResult.structured.completion_estimate}%`,
-                          background: aiPhotoResult.structured.completion_estimate > 75 ? '#4ade80' : aiPhotoResult.structured.completion_estimate > 40 ? '#f59e0b' : '#ef4444',
-                          height: '100%', borderRadius: 4, transition: 'width 0.5s',
-                        }} />
-                      </div>
-                      <span style={{ color: '#f1f5f9', fontWeight: 700, minWidth: 40 }}>{aiPhotoResult.structured.completion_estimate}%</span>
-                    </div>
-                  </div>
-
-                  {/* Safety Issues */}
-                  {aiPhotoResult.structured.safety_issues?.length > 0 && (
-                    <div style={{ background: '#450a0a', borderRadius: 8, padding: 16, marginBottom: 16, border: '1px solid #ef4444' }}>
-                      <div style={{ color: '#ef4444', fontWeight: 700, marginBottom: 8 }}>Safety Issues</div>
-                      <ul style={{ color: '#fca5a5', paddingLeft: 20, margin: 0 }}>
-                        {aiPhotoResult.structured.safety_issues.map((s, i) => <li key={i}>{s}</li>)}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Quality Observations */}
-                  {aiPhotoResult.structured.quality_observations?.length > 0 && (
-                    <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                      <div style={{ color: '#a78bfa', fontWeight: 700, marginBottom: 8 }}>Quality Observations</div>
-                      <ul style={{ color: '#cbd5e1', paddingLeft: 20, margin: 0 }}>
-                        {aiPhotoResult.structured.quality_observations.map((q, i) => <li key={i}>{q}</li>)}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Next Steps */}
-                  {aiPhotoResult.structured.recommended_next_steps?.length > 0 && (
-                    <div style={{ background: '#1e293b', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                      <div style={{ color: '#4ade80', fontWeight: 700, marginBottom: 8 }}>Recommended Next Steps</div>
-                      <ol style={{ color: '#cbd5e1', paddingLeft: 20, margin: 0 }}>
-                        {aiPhotoResult.structured.recommended_next_steps.map((s, i) => <li key={i}>{s}</li>)}
-                      </ol>
-                    </div>
-                  )}
-
-                  {aiPhotoResult.log_entry && (
-                    <div style={{ background: '#0d2d16', borderRadius: 8, padding: 12, color: '#4ade80', fontSize: 13, border: '1px solid #166534' }}>
-                      Daily log entry auto-created (ID: {aiPhotoResult.log_entry.id})
-                    </div>
-                  )}
+              {aiPhotoResult && !aiPhotoResult.error && aiPhotoResult.structured && <AIReport response={aiPhotoResult.structured} title="Photo analysis" />}
+              {aiPhotoResult?.log_entry && (
+                <div style={{ background: '#0d2d16', borderRadius: 8, padding: 12, color: '#4ade80', fontSize: 13, border: '1px solid #166534' }}>
+                  Daily log entry auto-created (ID: {aiPhotoResult.log_entry.id})
                 </div>
               )}
               {aiPhotoResult?.error && (

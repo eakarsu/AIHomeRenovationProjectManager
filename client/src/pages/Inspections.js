@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import AIResponse from '../components/AIResponse';
+import AIPromptPresets from '../components/AIPromptPresets';
 import API from '../services/api';
 
 const empty = { inspection_type:'', inspector_name:'', inspector_phone:'', scheduled_date:'', completed_date:'', status:'scheduled', result:'', area:'', permit_ref:'', follow_up_required:false, notes:'' };
@@ -92,6 +93,11 @@ export default function Inspections({ user, onLogout }) {
         <div className="modal-header"><h2>🤖 AI Inspection Prep Guide</h2><button className="modal-close" onClick={()=>setShowAI(false)}>&times;</button></div>
         <div className="modal-body">
           {!aiData && !aiLoading && <div className="ai-form">
+            <AIPromptPresets value={aiForm} onChange={setAIForm} presets={[
+              { label: 'Rough electrical', values: { inspection_type: 'Rough electrical', area: 'Kitchen and dining room' } },
+              { label: 'Framing', values: { inspection_type: 'Framing inspection', area: 'Second-floor bathroom' } },
+              { label: 'Final plumbing', values: { inspection_type: 'Final plumbing', area: 'Kitchen and main bathroom' } },
+            ]} />
             <div className="form-group"><label>Inspection Type</label><input value={aiForm.inspection_type} onChange={e=>setAIForm({...aiForm,inspection_type:e.target.value})} placeholder="e.g., Final Electrical" /></div>
             <div className="form-group"><label>Area</label><input value={aiForm.area} onChange={e=>setAIForm({...aiForm,area:e.target.value})} placeholder="e.g., Whole House" /></div>
             <button className="btn btn-ai" onClick={handleAI}>Generate Prep Guide</button>

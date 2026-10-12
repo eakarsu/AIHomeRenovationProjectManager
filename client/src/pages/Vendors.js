@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import AIResponse from '../components/AIResponse';
+import AIPromptPresets from '../components/AIPromptPresets';
 import API from '../services/api';
 
 const empty = { name:'', category:'', contact_name:'', phone:'', email:'', website:'', rating:'', payment_terms:'', delivery_speed:'', location:'', notes:'' };
@@ -87,6 +88,11 @@ export default function Vendors({ user, onLogout }) {
         <div className="modal-header"><h2>🤖 AI Vendor Comparison</h2><button className="modal-close" onClick={()=>setShowAI(false)}>&times;</button></div>
         <div className="modal-body">
           {!aiData && !aiLoading && <div className="ai-form">
+            <AIPromptPresets value={aiForm} onChange={setAIForm} presets={[
+              { label: 'Quartz counters', values: { material_needed: 'Quartz kitchen countertops, 35 sq ft, including fabrication and installation', budget: '4500' } },
+              { label: 'Oak flooring', values: { material_needed: 'Engineered white oak flooring, 600 sq ft, including underlayment', budget: '7200' } },
+              { label: 'Bathroom tile', values: { material_needed: 'Porcelain bathroom wall and floor tile, 180 sq ft', budget: '3200' } },
+            ]} />
             <div className="form-group"><label>Material Needed</label><input value={aiForm.material_needed} onChange={e=>setAIForm({...aiForm,material_needed:e.target.value})} placeholder="e.g., Quartz countertops" /></div>
             <div className="form-group"><label>Budget ($)</label><input type="number" value={aiForm.budget} onChange={e=>setAIForm({...aiForm,budget:e.target.value})} /></div>
             <button className="btn btn-ai" onClick={handleAI}>Compare Vendors</button>
