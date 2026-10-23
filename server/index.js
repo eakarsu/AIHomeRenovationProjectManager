@@ -51,6 +51,7 @@ app.use('/api/vision-progress', require('./routes/visionProgressTracker'));
 app.use('/api/change-order', require('./routes/changeOrderAdvisor'));
 app.use('/api/permit-inspection-readiness', require('./routes/permitInspectionReadiness'));
 app.use('/api/governed-renovation-deliverables', governanceRouter);
+app.use('/api/wave37', require('./middleware/auth'), require('./routes/wave37a').createWave37Router());
 
 // Apply AI rate limiter to all AI sub-routes
 const aiRoutes = [

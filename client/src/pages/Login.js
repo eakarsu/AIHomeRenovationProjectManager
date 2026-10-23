@@ -7,17 +7,21 @@ export default function Login({ onLogin }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const signInWith = async (loginEmail, loginPassword) => {
     setLoading(true);
     setError('');
     try {
-      const { data } = await API.post('/auth/login', { email, password });
+      const { data } = await API.post('/auth/login', { email: loginEmail, password: loginPassword });
       onLogin(data.token, data.user);
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
     }
     setLoading(false);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await signInWith(email, password);
   };
 
   return (
@@ -54,7 +58,13 @@ export default function Login({ onLogin }) {
           </div>
           <button
             type="button"
-            onClick={() => { setEmail(process.env.REACT_APP_DEMO_EMAIL || ''); setPassword(process.env.REACT_APP_DEMO_PASSWORD || ''); setError(''); }}
+            onClick={() => {
+              const demoEmail = process.env.REACT_APP_DEMO_EMAIL || '';
+              const demoPassword = process.env.REACT_APP_DEMO_PASSWORD || '';
+              setEmail(demoEmail);
+              setPassword(demoPassword);
+              signInWith(demoEmail, demoPassword);
+            }}
             disabled={loading || process.env.REACT_APP_ENABLE_DEMO_CREDENTIAL_AUTOFILL !== 'true' || !process.env.REACT_APP_DEMO_EMAIL || !process.env.REACT_APP_DEMO_PASSWORD}
             aria-label="Fill demo credentials"
             style={{ width: '100%', marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', cursor: 'pointer' }}
